@@ -1,4 +1,4 @@
-
+# Install and Load Required Libraries
 install.packages("rstudioapi")
 library(rstudioapi)
 install.packages("ggplot2")
@@ -11,18 +11,20 @@ install.packages("factoextra")
 library(factoextra)
 install.packages("multiROC")
 library(multiROC)
-
+# Set Working Directory and Load Data
 current_path=rstudioapi::getActiveDocumentContext()$path
 setwd(dirname(current_path))
 winequality.white <- read.csv("winequality-white.dat", comment.char="#")
+# set random seed for reproducibility
 set.seed(55)
+# Data Cleaning and Overview
 summary(winequality.white)
 sum(is.na.data.frame(winequality.white))
 sum(duplicated(winequality.white))
 winequality.white <- unique.data.frame(winequality.white)
 plot(factor(winequality.white$Quality), col = rainbow(7), xlab = "Quality", 
      ylab = "Frequency", main = "Original Quality Distribution")
-
+# Rearranging "Quality" variable
 winequality.white$Quality[winequality.white$Quality == "3"] <- 1
 winequality.white$Quality[winequality.white$Quality == "4"] <- 1
 winequality.white$Quality[winequality.white$Quality == "5"] <- 1
@@ -30,12 +32,12 @@ winequality.white$Quality[winequality.white$Quality == "6"] <- 2
 winequality.white$Quality[winequality.white$Quality == "7"] <- 3
 winequality.white$Quality[winequality.white$Quality == "8"] <- 3
 winequality.white$Quality[winequality.white$Quality == "9"] <- 3
-
+# New overview
 plot(factor(winequality.white$Quality), col = rainbow(7), xlab = "Quality", 
      ylab = "Frequency", main = "Our Quality Distribution")
 winequality.white$Quality <- factor(winequality.white$Quality)
 summary(winequality.white$Quality)
-
+# Boxplot
 par(mfrow=c(3,4)) 
 for(i in 1:11) {
   boxplot(winequality.white[,i], main=names(winequality.white[i])) }
@@ -49,8 +51,7 @@ featurePlot(x=winequality.white[,1:11], y=winequality.white$Quality, plot="densi
             scales=list(x=list(relation="free"), y=list(relation="free")),
             auto.key=list(columns=3))
 
-# featurePlot(x=winequality.white[1:500,1:11], y=winequality.white$Quality[1:500], 
-#             plot="pairs", auto.key=list(columns=3))
+# Principal Component Analysis
 
 
 winequality.white[1:11] <- scale(winequality.white[1:11])
@@ -61,11 +62,11 @@ data1 <- data.frame(data1[1:6])
 featurePlot(x=data1[,2:6], y=data1$Quality, plot="density", auto.key=list(columns=3),
             scales=list(x=list(relation="free"), y=list(relation="free")))
 featurePlot(x=data1[1:500,2:6], y=data1$Quality[1:500], plot="pairs", auto.key=list(columns=3))
-
+# Train-Test split
 ind = sample(2, nrow(data1), replace = TRUE, prob=c(0.7, 0.3))
 trainset = data1[ind == 1,]
 testset = data1[ind == 2,]
-
+# Training ML models
 control = trainControl(method = "repeatedcv", number = 10, repeats = 3,
                        classProbs = TRUE, summaryFunction = multiClassSummary) 
 
@@ -76,16 +77,17 @@ rete= train(Quality ~., data = trainset, method="nnet", metric="AUC",
 
 svm2= train(Quality ~ ., data = trainset, method = "svmRadial",
             metric="AUC", trControl = control)
-
+# OPTIONAL: training a polynomial kernel SVM
 # svm= train(Quality ~ ., data = trainset, method = "svmPoly", degree=3,
 #            metric="AUC", trControl = control, nmax=1000)
 
+#  Cross-validation and Comparison of Models
 cv.values = resamples(list(net = rete, svm = svm2))
 summary(cv.values)
 View(svm2$finalModel)
 View(rete$finalModel)
 dotplot(cv.values, metric = "AUC")
-
+# Testing model prediction
 pred.svm2=predict(svm2,testset[, !names(testset) %in% c("Quality")],type = "prob")
 
 pred.rete = predict(rete,testset[, !names(testset) %in% c("Quality")],type = "prob") 
@@ -121,11 +123,11 @@ levels(testset$Quality) <- c("Q1","Q2","Q3")
 pred.svm2=predict(svm2,testset[, !names(testset) %in% c("Quality")]) 
 
 pred.rete = predict(rete,testset[, !names(testset) %in% c("Quality")]) 
-
+# Confusion Matrixes
 confusionMatrix(pred.rete,testset[,c("Quality")], mode = "prec_recall")
 
 confusionMatrix(pred.svm2,testset[,c("Quality")], mode = "prec_recall")
-
+# Plotting ROC curves
 ggplot2::ggplot(res_df, ggplot2::aes(x = 1-Specificity, y=Sensitivity)) + 
   ggplot2::geom_path(ggplot2::aes(color = Group, linetype=Method)) + 
   ggplot2::geom_segment(ggplot2::aes(x = 0, y = 0, xend = 1, yend = 1), 
